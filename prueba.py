@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 
 if __name__ == '__main__':
 
@@ -13,23 +14,33 @@ if __name__ == '__main__':
         def __init__(self, image_paths):
             self.image_paths = image_paths
             self.src_path = "./data/low-resolution/"
-            self.data = []
-            for path in image_paths:
+            self.data = np.zeros((len(image_paths), 256, 256, 3), dtype=np.float32)
+            self.labels = np.zeros((len(image_paths), 1), dtype=np.float32)
+
+            for i in range(len(image_paths)):
+                path = image_paths[i]
+
                 image_path = self.src_path + path
                 image = cv2.imread(image_path)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.resize(image, (256, 256))
                 image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
+                torch.tensor(image, dtype=torch.float32)
 
                 label = int(path.split("-")[1][1:])
-                self.data.append([image, label])
+                torch.tensor(label, dtype=torch.float32)
+
+                self.data[i] = image
+                self.labels[i] = label
+
             self.data = torch.tensor(self.data, dtype=torch.float32)
+            print(self.data.shape)
 
         def __len__(self):
             return len(self.data)
 
         def __getitem__(self, idx):
-            return self.data[idx][0], self.data[idx][1]
+            return self.data[idx], self.labels[idx]
                 
 
     num_classes = 130
@@ -50,18 +61,15 @@ if __name__ == '__main__':
     train_image_paths = [line.strip() for line in lines]
     train_image_paths = [path[3:] for path in train_image_paths]
 
-    # Create a dataset and dataloader
+    # Create the train dataset and the dataloader
     train_dataset = CustomDataset(train_image_paths)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=16,
+        batch_size=64,
         shuffle=True,
         num_workers=4,
     )
-
-    print(train_loader)
-    print(train_loader.dataset.data.shape)
 
 
     # Define your optimizer with weight decay
