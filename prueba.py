@@ -24,7 +24,6 @@ if __name__ == '__main__':
                 image = cv2.imread(image_path)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.resize(image, (256, 256))
-                image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
                 torch.tensor(image, dtype=torch.float32)
 
                 label = int(path.split("-")[1][1:])
@@ -40,7 +39,9 @@ if __name__ == '__main__':
             return len(self.data)
 
         def __getitem__(self, idx):
-            return self.data[idx], self.labels[idx]
+            image = self.data[idx].permute(2, 0, 1)  # Reorder dimensions to [channels, height, width]
+            label = self.labels[idx]
+            return image, label
                 
 
     num_classes = 130
@@ -49,8 +50,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Load a model
-    model = YOLO("yolo11n.yaml").to(device)  # build from YAML and transfer weights´
+    # Load the model
+    model = YOLO("yolo11n.yaml").to(device)
 
 
     # Read file .lst and process it
@@ -61,8 +62,14 @@ if __name__ == '__main__':
     train_image_paths = [line.strip() for line in lines]
     train_image_paths = [path[3:] for path in train_image_paths]
 
+    train_image_paths = train_image_paths[:1000]  # Limit to 1000 images
+
     # Create the train dataset and the dataloader
     train_dataset = CustomDataset(train_image_paths)
+
+    # Normalize the dataset
+    train_dataset.data = train_dataset.data / 255.0  # Normalize to [0, 1]
+
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -85,15 +92,12 @@ if __name__ == '__main__':
     for epoch in range(num_epochs):
         running_loss = 0.0
         for images, labels in train_loader:
-
             optimizer.zero_grad()
-            outputs = torch.Tensor(model(images)).to(device)
-            labels = torch.Tensor(labels).long().to(device)
-            print("outputs.shape")
-            print("labels.shape")
-            print(outputs.shape)
-            print(labels.shape)
-            print(outputs, labels)
+
+            outputs = images.to(device)
+            labels = labels.squeeze(1).long().to(device)
+            
+            outputs = model(images)  # Forward pass
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
