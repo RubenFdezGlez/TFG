@@ -1,3 +1,8 @@
+'''
+   @author: Ruben Fernandez Gonzalez 
+'''
+
+# Import necessary libraries
 from ultralytics import YOLO
 import torch
 import torch.nn as nn
@@ -13,7 +18,7 @@ if __name__ == '__main__':
     class CustomDataset(Dataset):
         def __init__(self, image_paths):
             self.image_paths = image_paths
-            self.src_path = "./data/low-resolution/"
+            self.src_path = "./data/train/"
             self.data = np.zeros((len(image_paths), 3, 256, 256), dtype=np.float32)
             self.labels = np.zeros((len(image_paths), 1), dtype=np.float32)
 
@@ -25,23 +30,22 @@ if __name__ == '__main__':
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.resize(image, (256, 256))
                 image = np.transpose(image, (2, 0, 1))
-                #torch.tensor(image, dtype=torch.float32)
+                image = image / 255.0  # Normalize the image to [0, 1]
 
                 label = int(path.split("-")[1][1:]) - 1
-                #torch.tensor(label, dtype=torch.float32)
 
                 self.data[i] = image
                 self.labels[i] = label
 
             self.data = torch.tensor(self.data, dtype=torch.float32)
-            print(self.data.shape)
 
         def __len__(self):
             return len(self.data)
 
         def __getitem__(self, idx):
-            #image = self.data[idx].permute(2, 0, 1)  # Reorder dimensions to [channels, height, width]
+            image = self.data[idx]
             label = self.labels[idx]
+
             return image, label
                 
 
@@ -54,9 +58,8 @@ if __name__ == '__main__':
     # Load the model
     model = YOLO("yolo11n.pt").to(device)
 
-
     # Read file .lst and process it
-    lst_file = "./data/low-resolution/train.lst"
+    lst_file = "./data/train/train.lst"
     with open(lst_file, "r") as f:
         lines = f.readlines()
 
@@ -65,19 +68,10 @@ if __name__ == '__main__':
 
     train_image_paths = train_image_paths[:1000]  # Limit to 1000 images
 
+
     # Create the train dataset and the dataloader
     train_dataset = CustomDataset(train_image_paths)
 
-    # Normalize the dataset
-    train_dataset.data = train_dataset.data / 255.0  # Normalize to [0, 1]
-
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=64,
-        shuffle=True,
-        num_workers=4,
-    )
 
     results = model(train_dataset.data, augment=True, verbose=True)
 
@@ -89,38 +83,50 @@ if __name__ == '__main__':
     # Process results list
     for result in results:
         for box in result.boxes:
-            class_id = box.cls  # Class ID of the detected object
-            confidence = box.conf  # Confidence score of the detection
+            class_name = int(box.cls[0])  # Class ID of the detected object
+            confidence = float(box.conf[0])  # Confidence score of the detection
 
-            if model.names[class_id] == "dog" and confidence > 0.5:
-                print(f"Detected a dog with confidence: {confidence:.2f}")
-                x1, y1, x2, y2 = box.xyxy  # Bounding box coordinates
+            if model.names[class_name] == "dog" and confidence > 0.5:
+                x1, y1, x2, y2 = map(int, box.xyxy[0]) # Bounding box coordinates
                 
-                dog_crop = image[int(y1):int(y2), int(x1):int(x2)]  # Crop the dog from the image
+                image = result.orig_img  # Original image
+                dog_crop = image[y1:y2, x1:x2]  # Crop the dog from the image
                 dog_crops.append(dog_crop)  # Append the cropped dog image to the list
 
+                # Save the cropped dog image (optional)
+                #file_name = src_bboxes + "dog_" + str(iter) + ".jpg"
+                #result.save(filename = file_name)  # Save the entire image with all the bounding boxes
+                #cv2.imwrite(file_name, dog_crop)
+        
+        #boxes = result.boxes  # Boxes object for bounding box outputs
+        #masks = result.masks  # Masks object for segmentation masks outputs
+        #keypoints = result.keypoints  # Keypoints object for pose outputs
+        #probs = result.probs  # Probs object for classification outputs
+        #obb = result.obb  # Oriented boxes object for OBB outputs
 
-            #boxes = result.boxes  # Boxes object for bounding box outputs
-            #masks = result.masks  # Masks object for segmentation masks outputs
-            #keypoints = result.keypoints  # Keypoints object for pose outputs
-            #probs = result.probs  # Probs object for classification outputs
-            #obb = result.obb  # Oriented boxes object for OBB outputs
-            #result.show()  # display to screen
-            result.save(filename = src_bboxes + "-num-" + i )  # save to disk
 
         iter += 1  # Increment iteration counter
 
-    '''
-    # Define your optimizer with weight decay
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+    # Create a DataLoader for the training dataset
 
-    # Define your learning rate scheduler
-    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=64,
+        shuffle=True,
+        num_workers=4,
+    )
+    
+    # Load Yolo11n model for classification
+    model_cls = YOLO("yolo11n-cls.yaml").to(device)
+
+    # Define the optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model_cls.parameters(), lr=0.001, weight_decay=0.0001)
+
 
     # Training loop
     num_epochs = 20
-    model.train()
+    model_cls.train()
     for epoch in range(num_epochs):
         running_loss = 0.0
         for images, labels in train_loader:
@@ -129,17 +135,12 @@ if __name__ == '__main__':
             
             optimizer.zero_grad()
 
-            outputs = torch.tensor(model(images))
-            outputs.requires_grad = True
+            outputs = model_cls(images)
             
-             # Forward pass
+            # Forward pass
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
 
-        # Update the learning rate
-        #scheduler.step()
-
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}")
-        '''

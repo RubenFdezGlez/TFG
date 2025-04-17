@@ -14,7 +14,7 @@ if __name__ == '__main__':
         def __init__(self, image_paths):
             self.image_paths = image_paths
             self.src_path = "./data/low-resolution/"
-            self.data = np.zeros((len(image_paths), 256, 256, 3), dtype=np.float32)
+            self.data = np.zeros((len(image_paths), 3, 256, 256), dtype=np.float32)
             self.labels = np.zeros((len(image_paths), 1), dtype=np.float32)
 
             for i in range(len(image_paths)):
@@ -24,22 +24,20 @@ if __name__ == '__main__':
                 image = cv2.imread(image_path)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.resize(image, (256, 256))
-                #torch.tensor(image, dtype=torch.float32)
+                image = np.transpose(image, (2, 0, 1))
 
                 label = int(path.split("-")[1][1:]) - 1
-                #torch.tensor(label, dtype=torch.float32)
 
                 self.data[i] = image
                 self.labels[i] = label
 
             self.data = torch.tensor(self.data, dtype=torch.float32)
-            print(self.data.shape)
 
         def __len__(self):
             return len(self.data)
 
         def __getitem__(self, idx):
-            image = self.data[idx].permute(2, 0, 1)  # Reorder dimensions to [channels, height, width]
+            image = self.data[idx]
             label = self.labels[idx]
             return image, label
                 
