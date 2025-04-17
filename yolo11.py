@@ -14,7 +14,7 @@ if __name__ == '__main__':
         def __init__(self, image_paths):
             self.image_paths = image_paths
             self.src_path = "./data/low-resolution/"
-            self.data = np.zeros((len(image_paths), 256, 256, 3), dtype=np.float32)
+            self.data = np.zeros((len(image_paths), 3, 256, 256), dtype=np.float32)
             self.labels = np.zeros((len(image_paths), 1), dtype=np.float32)
 
             for i in range(len(image_paths)):
@@ -24,6 +24,7 @@ if __name__ == '__main__':
                 image = cv2.imread(image_path)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.resize(image, (256, 256))
+                image = np.transpose(image, (2, 0, 1))
                 #torch.tensor(image, dtype=torch.float32)
 
                 label = int(path.split("-")[1][1:]) - 1
@@ -39,7 +40,7 @@ if __name__ == '__main__':
             return len(self.data)
 
         def __getitem__(self, idx):
-            image = self.data[idx].permute(2, 0, 1)  # Reorder dimensions to [channels, height, width]
+            #image = self.data[idx].permute(2, 0, 1)  # Reorder dimensions to [channels, height, width]
             label = self.labels[idx]
             return image, label
                 
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
 
     # Load the model
-    model = YOLO("yolo11n.yaml").to(device)
+    model = YOLO("yolo11n.pt").to(device)
 
 
     # Read file .lst and process it
@@ -78,7 +79,38 @@ if __name__ == '__main__':
         num_workers=4,
     )
 
+    results = model(train_dataset.data, augment=True, verbose=True)
 
+    src_bboxes = "./bboxes/" 
+
+    dog_crops = []  # List to store cropped dog images
+    iter = 0  # Initialize iteration counter
+
+    # Process results list
+    for result in results:
+        for box in result.boxes:
+            class_id = box.cls  # Class ID of the detected object
+            confidence = box.conf  # Confidence score of the detection
+
+            if model.names[class_id] == "dog" and confidence > 0.5:
+                print(f"Detected a dog with confidence: {confidence:.2f}")
+                x1, y1, x2, y2 = box.xyxy  # Bounding box coordinates
+                
+                dog_crop = image[int(y1):int(y2), int(x1):int(x2)]  # Crop the dog from the image
+                dog_crops.append(dog_crop)  # Append the cropped dog image to the list
+
+
+            #boxes = result.boxes  # Boxes object for bounding box outputs
+            #masks = result.masks  # Masks object for segmentation masks outputs
+            #keypoints = result.keypoints  # Keypoints object for pose outputs
+            #probs = result.probs  # Probs object for classification outputs
+            #obb = result.obb  # Oriented boxes object for OBB outputs
+            #result.show()  # display to screen
+            result.save(filename = src_bboxes + "-num-" + i )  # save to disk
+
+        iter += 1  # Increment iteration counter
+
+    '''
     # Define your optimizer with weight decay
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
@@ -110,3 +142,4 @@ if __name__ == '__main__':
         #scheduler.step()
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}")
+        '''

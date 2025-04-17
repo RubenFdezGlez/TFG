@@ -5,5 +5,4 @@ Lab08 - Image Classification with CNNs.pdf
 train.lst
 validation.lst
 ejclase.py
-yolo11.py
 yolo11n.pt
