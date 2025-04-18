@@ -12,9 +12,55 @@ import torchvision.transforms as transforms
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import os # For file operations (Renaming files, etc.)
+import xml.etree.ElementTree as ET
+from PIL import Image
 
 if __name__ == '__main__':
 
+    # Class to transform the XML files to YOLO format
+    class XMLTransformer:
+        def __init__(self, xml_file, classes_names):
+            self.xml_file = xml_file
+            self.classes_names = classes_names
+
+        def transform(self):
+            with open(self.xml_file, 'w') as file:
+                # Create the XML tree and get the root element
+                tree = ET.parse(self.xml_file)
+                root = tree.getroot()
+
+                # Extract image dimensions
+                size = root.find('size')
+                width = int(size.find('width').text)
+                height = int(size.find('height').text)
+
+                # Iterate through each object in the XML file
+                for obj in root.findall('object'):
+                    
+                    # Extract class ID
+                    class_name = obj.find('name').text.lower()
+                    class_id = self.classes_names.index(class_name) if class_name in self.classes_names else -1
+
+                    # Check the coordinates of the bounding box
+                    bndbox = obj.find('bndbox')
+                    x1 = int(bndbox.find('xmin').text)
+                    y1 = int(bndbox.find('ymin').text)
+                    x2 = int(bndbox.find('xmax').text)
+                    y2 = int(bndbox.find('ymax').text)
+
+                    # Convert to YOLO format (normalized coordinates)
+                    x_center = (x1 + x2) / 2 / width
+                    y_center = (y1 + y2) / 2 / height
+                    w = (x2 - x1) / width
+                    h = (y2 - y1) / height
+                
+                    # Write to file in YOLO format
+                    file.write(f"{class_id} {x_center} {y_center} {w} {h}\n")
+
+                    
+
+    # Define a custom dataset class
     class CustomDataset(Dataset):
         def __init__(self, image_paths):
             self.image_paths = image_paths
@@ -49,7 +95,36 @@ if __name__ == '__main__':
             return image, label
                 
 
+
     num_classes = 130
+
+    classes_names = np.array([
+        "shibadog", "frenchbulldog", "siberianhusky", "malamuten", "pomeranian",
+        "ibizanhound", "borderterrier", "airedale", "cairn", "miniaturepoodle",
+        "irishsetter", "affenpinscher", "afghanhound", "otterhound", "staffordshirebullterrier",
+        "norwichterrier", "lakelandterrier", "germanshepherd", "leonberg", "australianterrier",
+        "tibetanterrier", "englishsetter", "welshspringerspaniel", "schipperke", "africanhuntingdog",
+        "blenheimspaniel", "norfolkterrier", "curlycoatedretriever", "pembroke", "tibetanmastiff",
+        "newfoundland", "filabrazileiro", "bedlingtonterrier", "sussexspaniel", "greatdane",
+        "irishterrier", "scotchterrier", "lhasa", "irishwolfhound", "westhighlandwhiteterrier",
+        "briard", "brabancongriffo", "dhole", "bloodhound", "redbone", "norwegianelkhound",
+        "flatcoatedretriever", "vizsla", "kelpie", "bluetick", "saluki", "dandiedinmont",
+        "standardschnauzer", "doberman", "entlebucher", "scottishdeerhound", "wirehairedfoxterrier",
+        "sealyhamterrier", "germanshorthairedpointer", "rottweiler", "bernesemountaindog",
+        "blackandtancoonhound", "walkerhound", "borzoi", "whippet", "irishwaterspaniel", "kuvasz",
+        "saintbernard", "mexicanhairless", "groenendael", "malinois", "bouvierdesflandres",
+        "greatpyrenees", "englishfoxhound", "chesapeakebayretriever", "britannyspaniel", "bullmastiff",
+        "americanstaffordshireterrier", "dingo", "rhodesianridgeback", "silkyterrier", "boxer",
+        "eskimodog", "bostonbull", "gordonsetter", "greaterswissmountaindog", "kerryblueterrier",
+        "samoyed", "giantschnauzer", "softcoatedwheatenterrier", "appenzeller", "keeshond",
+        "chinesecresteddog", "collie", "toyterrier", "weimaraner", "clumber", "australianshepherd",
+        "italiangreyhound", "basset", "maltesedog", "miniatureschnauzer", "basenji", "blacksable",
+        "canecarso", "japanesespaniel", "japanesespitzes", "oldenglishsheepdog", "bordercollie",
+        "shetlandsheepdog", "cockerspaniel", "englishspringer", "beagle", "toypoodle", "komondor",
+        "cardigan", "bichonfrise", "standardpoodle", "chow", "yorkshireterrier", "chineseruraldog",
+        "labradorretriever", "shihtzu", "chihuahua", "pekinese", "goldenretriever", "miniaturepinscher",
+        "teddy", "papillon", "pug"
+    ])
 
     # Identify device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -58,25 +133,35 @@ if __name__ == '__main__':
     # Load the model
     model = YOLO("yolo11n.pt").to(device)
 
-    # Read file .lst and process it
-    lst_file = "./data/train/train.lst"
+    # Transform the XML files to YOLO format
+    for xml_file in os.listdir("./labels/Low-Annotations"):
+        if xml_file.endswith(".xml"):
+            transformer = XMLTransformer(xml_file, classes_names)
+            transformer.transform()
+
+    # Rename .lst files to be compatible with YOLO (In the .yaml file)
+    os.rename("./data/lstfiles/train.lst", "./data/lstfiles/train.txt")
+    os.rename("./data/lstfiles/validation.lst", "./data/lstfiles/validation.txt")
+
+    # Read file paths from the .txt file (Training data)
+    lst_file = "./data/lstfiles/train.txt"
     with open(lst_file, "r") as f:
         lines = f.readlines()
 
     train_image_paths = [line.strip() for line in lines]
     train_image_paths = [path[3:] for path in train_image_paths]
 
-    train_image_paths = train_image_paths[:1000]  # Limit to 1000 images
-
+    train_image_paths = train_image_paths[:1000]  # Currently limited
 
     # Create the train dataset and the dataloader
     train_dataset = CustomDataset(train_image_paths)
 
 
+
+    # Constructs the bounding boxes for the training dataset
     results = model(train_dataset.data, augment=True, verbose=True)
 
     src_bboxes = "./bboxes/" 
-
     dog_crops = []  # List to store cropped dog images
     iter = 0  # Initialize iteration counter
 
@@ -93,22 +178,11 @@ if __name__ == '__main__':
                 dog_crop = image[y1:y2, x1:x2]  # Crop the dog from the image
                 dog_crops.append(dog_crop)  # Append the cropped dog image to the list
 
-                # Save the cropped dog image (optional)
-                #file_name = src_bboxes + "dog_" + str(iter) + ".jpg"
-                #result.save(filename = file_name)  # Save the entire image with all the bounding boxes
-                #cv2.imwrite(file_name, dog_crop)
-        
-        #boxes = result.boxes  # Boxes object for bounding box outputs
-        #masks = result.masks  # Masks object for segmentation masks outputs
-        #keypoints = result.keypoints  # Keypoints object for pose outputs
-        #probs = result.probs  # Probs object for classification outputs
-        #obb = result.obb  # Oriented boxes object for OBB outputs
-
-
         iter += 1  # Increment iteration counter
 
-    # Create a DataLoader for the training dataset
 
+
+    # Create a DataLoader for the training dataset
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=64,
@@ -119,28 +193,4 @@ if __name__ == '__main__':
     # Load Yolo11n model for classification
     model_cls = YOLO("yolo11n-cls.yaml").to(device)
 
-    # Define the optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model_cls.parameters(), lr=0.001, weight_decay=0.0001)
-
-
-    # Training loop
-    num_epochs = 20
-    model_cls.train()
-    for epoch in range(num_epochs):
-        running_loss = 0.0
-        for images, labels in train_loader:
-            images = images.to(device)
-            labels = labels.squeeze(1).long().to(device)
-            
-            optimizer.zero_grad()
-
-            outputs = model_cls(images)
-            
-            # Forward pass
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}")
+    model_cls.train(model = "train.yaml", epochs = 20, batch = 64, device = device, workers = 4)
