@@ -1,15 +1,14 @@
-path: ./data/
-train: train/
-val: val/validation.txt
-test: test/
+path: ./data/images
+train: train.txt
+val: validation.txt
 
-nc : 130 # number of classes
+nc: 130
 
 names: 
   0: shibadog
   1: frenchbulldog
   2: siberianhusky
-  3: malamuten
+  3: malamute
   4: pomeranian
   5: ibizanhound
   6: borderterrier
@@ -37,7 +36,7 @@ names:
   28: pembroke
   29: tibetanmastiff
   30: newfoundland
-  31: filabrazileiro
+  31: filabraziliero
   32: bedlingtonterrier
   33: sussexspaniel
   34: greatdane
@@ -81,7 +80,7 @@ names:
   72: greatpyrenees
   73: englishfoxhound
   74: chesapeakebayretriever
-  75: britannyspaniel
+  75: brittanyspaniel
   76: bullmastiff
   77: americanstaffordshireterrier
   78: dingo

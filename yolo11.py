@@ -25,11 +25,11 @@ if __name__ == '__main__':
             self.classes_names = classes_names
 
         def transform(self):
-            with open(self.xml_file, 'w') as file:
-                # Create the XML tree and get the root element
-                tree = ET.parse(self.xml_file)
-                root = tree.getroot()
+            # Create the XML tree and get the root element
+            tree = ET.parse(self.xml_file)
+            root = tree.getroot()
 
+            with open(self.xml_file, 'w') as file:
                 # Extract image dimensions
                 size = root.find('size')
                 width = int(size.find('width').text)
@@ -40,14 +40,27 @@ if __name__ == '__main__':
                     
                     # Extract class ID
                     class_name = obj.find('name').text.lower()
-                    class_id = self.classes_names.index(class_name) if class_name in self.classes_names else -1
+                    for char in '_ ':
+                        class_name = class_name.replace(char, '')
+                    print(f"Class name: {class_name}")
+                    class_id = np.where(self.classes_names == class_name)[0][0]
 
                     # Check the coordinates of the bounding box
-                    bndbox = obj.find('bndbox')
-                    x1 = int(bndbox.find('xmin').text)
-                    y1 = int(bndbox.find('ymin').text)
-                    x2 = int(bndbox.find('xmax').text)
-                    y2 = int(bndbox.find('ymax').text)
+                    headbndbox = obj.find('headbndbox')
+                    bodybndbox = obj.find('bodybndbox')
+                    x1_h = int(headbndbox.find('xmin').text)
+                    y1_h = int(headbndbox.find('ymin').text)
+                    x2_h = int(headbndbox.find('xmax').text)
+                    y2_h = int(headbndbox.find('ymax').text)
+                    x1_b = int(bodybndbox.find('xmin').text)
+                    y1_b = int(bodybndbox.find('ymin').text)
+                    x2_b = int(bodybndbox.find('xmax').text)
+                    y2_b = int(bodybndbox.find('ymax').text)
+
+                    x1 = min(x1_h, x1_b)
+                    y1 = min(y1_h, y1_b)
+                    x2 = max(x2_h, x2_b)
+                    y2 = max(y2_h, y2_b)
 
                     # Convert to YOLO format (normalized coordinates)
                     x_center = (x1 + x2) / 2 / width
@@ -64,7 +77,7 @@ if __name__ == '__main__':
     class CustomDataset(Dataset):
         def __init__(self, image_paths):
             self.image_paths = image_paths
-            self.src_path = "./data/train/"
+            self.src_path = "./data/images/"
             self.data = np.zeros((len(image_paths), 3, 256, 256), dtype=np.float32)
             self.labels = np.zeros((len(image_paths), 1), dtype=np.float32)
 
@@ -99,13 +112,13 @@ if __name__ == '__main__':
     num_classes = 130
 
     classes_names = np.array([
-        "shibadog", "frenchbulldog", "siberianhusky", "malamuten", "pomeranian",
+        "shibadog", "frenchbulldog", "siberianhusky", "malamute", "pomeranian",
         "ibizanhound", "borderterrier", "airedale", "cairn", "miniaturepoodle",
         "irishsetter", "affenpinscher", "afghanhound", "otterhound", "staffordshirebullterrier",
         "norwichterrier", "lakelandterrier", "germanshepherd", "leonberg", "australianterrier",
         "tibetanterrier", "englishsetter", "welshspringerspaniel", "schipperke", "africanhuntingdog",
         "blenheimspaniel", "norfolkterrier", "curlycoatedretriever", "pembroke", "tibetanmastiff",
-        "newfoundland", "filabrazileiro", "bedlingtonterrier", "sussexspaniel", "greatdane",
+        "newfoundland", "filabraziliero", "bedlingtonterrier", "sussexspaniel", "greatdane",
         "irishterrier", "scotchterrier", "lhasa", "irishwolfhound", "westhighlandwhiteterrier",
         "briard", "brabancongriffo", "dhole", "bloodhound", "redbone", "norwegianelkhound",
         "flatcoatedretriever", "vizsla", "kelpie", "bluetick", "saluki", "dandiedinmont",
@@ -113,7 +126,7 @@ if __name__ == '__main__':
         "sealyhamterrier", "germanshorthairedpointer", "rottweiler", "bernesemountaindog",
         "blackandtancoonhound", "walkerhound", "borzoi", "whippet", "irishwaterspaniel", "kuvasz",
         "saintbernard", "mexicanhairless", "groenendael", "malinois", "bouvierdesflandres",
-        "greatpyrenees", "englishfoxhound", "chesapeakebayretriever", "britannyspaniel", "bullmastiff",
+        "greatpyrenees", "englishfoxhound", "chesapeakebayretriever", "brittanyspaniel", "bullmastiff",
         "americanstaffordshireterrier", "dingo", "rhodesianridgeback", "silkyterrier", "boxer",
         "eskimodog", "bostonbull", "gordonsetter", "greaterswissmountaindog", "kerryblueterrier",
         "samoyed", "giantschnauzer", "softcoatedwheatenterrier", "appenzeller", "keeshond",
@@ -134,22 +147,34 @@ if __name__ == '__main__':
     model = YOLO("yolo11n.pt").to(device)
 
     # Transform the XML files to YOLO format
-    for xml_file in os.listdir("./labels/Low-Annotations"):
-        if xml_file.endswith(".xml"):
-            transformer = XMLTransformer(xml_file, classes_names)
-            transformer.transform()
+    for xml_dir in os.listdir("./labels/Low-Annotations"):
+        for xml_file in os.listdir(os.path.join("./labels/Low-Annotations", xml_dir)):
+            if xml_file.endswith(".xml"):
+                complete_path = os.path.join("./labels/Low-Annotations", xml_dir, xml_file)
+                transformer = XMLTransformer(complete_path, classes_names)
+                transformer.transform()
+
+                os.rename(complete_path, os.path.join("./labels/Low-Annotations", xml_dir, xml_file.replace(".xml", ".txt")))
 
     # Rename .lst files to be compatible with YOLO (In the .yaml file)
-    os.rename("./data/lstfiles/train.lst", "./data/lstfiles/train.txt")
-    os.rename("./data/lstfiles/validation.lst", "./data/lstfiles/validation.txt")
+    if os.path.exists("./data/images/train.lst"):
+        os.rename("./data/images/train.lst", "./data/images/train.txt")
+
+    if os.path.exists("./data/images/validation.lst"):
+        os.rename("./data/images/validation.lst", "./data/images/validation.txt")
 
     # Read file paths from the .txt file (Training data)
-    lst_file = "./data/lstfiles/train.txt"
+    lst_file = "./data/images/train.txt"
     with open(lst_file, "r") as f:
         lines = f.readlines()
 
+    with open(lst_file, "w") as f:
+        for line in lines:
+            path = line.strip().replace(".//", "./") 
+            f.write(f"{path}\n")
+
     train_image_paths = [line.strip() for line in lines]
-    train_image_paths = [path[3:] for path in train_image_paths]
+    train_image_paths = [path[2:] for path in train_image_paths]
 
     train_image_paths = train_image_paths[:1000]  # Currently limited
 
@@ -193,4 +218,4 @@ if __name__ == '__main__':
     # Load Yolo11n model for classification
     model_cls = YOLO("yolo11n-cls.yaml").to(device)
 
-    model_cls.train(model = "train.yaml", epochs = 20, batch = 64, device = device, workers = 4)
+    model_cls.train(model = "./train.yaml", epochs = 20, batch = 64, device = device, workers = 4)
