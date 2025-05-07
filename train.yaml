@@ -1,6 +1,6 @@
-path: ./data/images
-train: train.txt
-val: validation.txt
+train: './../train/'
+val: './../val/'
+test: './../test/'
 
 nc: 130
 

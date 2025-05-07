@@ -9,3 +9,9 @@ from flask import request # Import request object for handling HTTP requests
 
 app = Flask(__name__)
 
+@app.route("/") # Define the root route
+def index():
+    return render_template("index.html")
+
+if __name__ == "__main__":
+    app.run(debug=True) # Run the Flask application in debug mode

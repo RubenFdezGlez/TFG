@@ -1,8 +1,5 @@
-2425_av_lab08_cnns_arquitectures_imageclassification_cifar_10_students.py
-2425_AV_Lab08_FERNANDEZGONZALEZ_RUBEN.zip
-ej3.py
-Lab08 - Image Classification with CNNs.pdf
-train.lst
-validation.lst
-ejclase.py
-yolo11n.pt
+*.jpg
+*.jpeg
+*.png
+*.log
+*.csv
