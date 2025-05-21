@@ -145,6 +145,58 @@ class DatasetReorganizer:
                     if dst_label.endswith(".jpeg.xml"):
                         os.rename(dst_label, dst_label.replace(".jpeg.xml", ".txt"))
 
+def get_classification_metrics(confusion_matrix, classes_names):
+    # Calcular métricas por clase
+    class_metrics = {}
+    
+    for i, class_name in enumerate(classes_names):
+        tp = confusion_matrix[i, i]
+        fp = confusion_matrix[:, i].sum() - tp
+        fn = confusion_matrix[i, :].sum() - tp
+
+        precision = tp / (tp + fp) if tp + fp > 0 else 0
+        recall = tp / (tp + fn) if tp + fn > 0 else 0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+        
+        class_metrics[class_name] = {
+            'precision': precision,
+            'recall': recall,
+            'f1': f1
+        }
+    
+    return class_metrics
+
+# Define a custom dataset class
+class CustomDataset(Dataset):
+    def __init__(self, image_paths = "train"):
+        self.image_paths = image_paths + "/"
+        self.src_path = "./datasets/" + image_paths + "images/"
+        self.data = []
+
+        for class_folder in os.listdir(self.src_path):
+
+            for image_file in os.listdir(os.path.join(self.src_path, class_folder)):
+                if image_file.endswith(('.jpg', '.jpeg', '.png')):
+                    self.data.append([image_file, class_folder])
+                if image_file.endswith(('.txt')):
+                    os.remove(os.path.join(self.src_path, class_folder, image_file))
+
+        self.class_map = {class_name: i for i, class_name in enumerate(os.listdir(self.src_path))}
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        image_file, class_folder = self.data[idx] 
+        img = cv22.imread(image_file)
+        img = cv2.resize(img, (224, 224))
+
+        class_id = self.class_map[class_folder] 
+        img_tensor = torch.from_numpy(img)
+        img_tensor = img_tensor.permute(2, 0, 1)  # Change from HWC to CHW format
+        class_id = torch.tensor([class_id])
+
+        return img_tensor, class_id
 
 if __name__ == '__main__':
 
@@ -156,8 +208,8 @@ if __name__ == '__main__':
 
     splits = {
         'train': 0.7,
-        'val': 0.2,
-        'test': 0.1,
+        'val': 0.1,
+        'test': 0.2,
     }
 
     num_classes = 130
@@ -188,87 +240,43 @@ if __name__ == '__main__':
         "labradorretriever", "shihtzu", "chihuahua", "pekinese", "goldenretriever", "miniaturepinscher",
         "teddy", "papillon", "pug"
     ])
-    
+
     #reorganizer = DatasetReorganizer("datasets", splits, classes_names)
     #reorganizer.reorganize()
-                    
-    # Define a custom dataset class
-    class CustomDataset(Dataset):
-        def __init__(self, image_paths = "train"):
-            self.image_paths = image_paths + "/"
-            self.src_path = "./datasets/" + image_paths + "images/"
-            self.data = []
-
-            for class_folder in os.listdir(self.src_path):
-
-                for image_file in os.listdir(os.path.join(self.src_path, class_folder)):
-                    if image_file.endswith(('.jpg', '.jpeg', '.png')):
-                        self.data.append([image_file, class_folder])
-                    if image_file.endswith(('.txt')):
-                        os.remove(os.path.join(self.src_path, class_folder, image_file))
-
-            self.class_map = {class_name: i for i, class_name in enumerate(os.listdir(self.src_path))}
-
-        def __len__(self):
-            return len(self.data)
-
-        def __getitem__(self, idx):
-            image_file, class_folder = self.data[idx] 
-            img = cv22.imread(image_file)
-            img = cv2.resize(img, (224, 224))
-
-            class_id = self.class_map[class_folder] 
-            img_tensor = torch.from_numpy(img)
-            img_tensor = img_tensor.permute(2, 0, 1)  # Change from HWC to CHW format
-            class_id = torch.tensor([class_id])
-
-            return img_tensor, class_id
-
-    
-
-    '''
-    # Create the train dataset and the dataloader
-    train_dataset = CustomDataset("train/")
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=64,
-        shuffle=True,
-        num_workers=4,
-    )
-    '''
-
+       
     # Load the model
     model = YOLO("yolo11n.pt").to(device)
     
     # Constructs the bounding boxes for the training dataset
-    results_val = model.train(data = "./datasets/train.yaml", epochs = 75, device = device, workers = 2, imgsz = 640, batch = 16, freeze = 4)
+    results_val = model.train(data = "./datasets/train.yaml", epochs = 50, device = device, workers = 2, imgsz = 640, batch = 16, freeze = 5, plots = True, exist_ok = True, save_period = 1, save_json = True, cache = True, patience = 10, deterministic=True, name="5f50ep_1", project = "runs/train")
 
-    # Validate the model
-    #results_val = model.val()  # no arguments needed, dataset and settings remembered
-    results_val.box.map  # map50-95
-    results_val.box.map50  # map50
-    results_val.box.map75  # map75
-    results_val.box.maps  # a list contains map50-95 of each category
+    metrics = model.val(data = "./datasets/train.yaml", split="test", device = device, conf = 0.5, iou = 0.5, imgsz = 640)
+    # Display the results
+    print("Results:")
+    print(metrics.box.map)         # mAP@0.5:0.95 promedio
+    print(metrics.box.map50)       # mAP@0.5 promedio
+    print(metrics.box.map75)       # mAP@0.75
+    print(metrics.box.maps)        # lista con mAP@0.5:0.95 por clase
+
+    metrics = get_classification_metrics(conf_matrix, classes_names)
+
+    # Show the classification metrics
+    for class_name, values in metrics.items():
+        print(f"Class: {class_name}")
+        print(f"  Precision: {values['precision']:.4f}")
+        print(f"  Recall: {values['recall']:.4f}")
+        print(f"  F1-Score: {values['f1']:.4f}")
+    print("/////////////")
 
     '''
-    # Run batched inference on a list of images
-    for class_folder in os.listdir("datasets/test/images"):
-        class_path = os.path.join("datasets/test/images", class_folder)
-        results = model.predict(class_path, device = device, conf = 0.5, iou = 0.5, save = True, save_txt = True)
+    # Process results list
+    for result in results:
+        boxes = result.boxes  # Boxes object for bounding box outputs
+        masks = result.masks  # Masks object for segmentation masks outputs
+        keypoints = result.keypoints  # Keypoints object for pose outputs
+        probs = result.probs  # Probs object for classification outputs
+        obb = result.obb  # Oriented boxes object for OBB outputs
 
-        # Process results list
-        for result in results:
-            boxes = result.boxes  # Boxes object for bounding box outputs
-            masks = result.masks  # Masks object for segmentation masks outputs
-            keypoints = result.keypoints  # Keypoints object for pose outputs
-            probs = result.probs  # Probs object for classification outputs
-            obb = result.obb  # Oriented boxes object for OBB outputs
-            result.show()  # display to screen
-            result.save(filename="result.jpg")  # save to disk
-    '''
-    
-    '''
     src_bboxes = "./bboxes/" 
     dog_crops = []  # List to store cropped dog images
     iter = 0  # Initialize iteration counter
@@ -288,8 +296,3 @@ if __name__ == '__main__':
 
         iter += 1  # Increment iteration counter
     '''
-    
-    # Load Yolo11n model for classification
-    #model_cls = YOLO("yolo11n-cls.yaml").load("yolo11n-cls.pt").to(device)
-
-    #model_cls.train(data = "datasets", epochs = 20, batch = 64, device = device, workers = 4)
