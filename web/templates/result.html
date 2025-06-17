@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Resultado</title>
+</head>
+<body>
+    <h2>Resultado:</h2>
+    <p><strong>Predicción:</strong> {{ label }}</p>
+    <img src="{{ url_for('static', filename='uploads/' + image.split('/')[-1]) }}" width="640">
+    <br><br>
+    <a href="/">Volver</a>
+</body>
+</html>
