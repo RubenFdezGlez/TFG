@@ -1,6 +1,6 @@
-train: './../train/'
-val: './../val/'
-test: './../test/'
+train: '/home/ruben/TFG/DogExpo/TFG_Dataset/train'
+val: '/home/ruben/TFG/DogExpo/TFG_Dataset/val'
+test: '/home/ruben/TFG/DogExpo/TFG_Dataset/test'
 
 nc: 130
 
