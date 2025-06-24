@@ -1,0 +1,176 @@
+/* Estilos generales */
+body {
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
+    background-color: #f8f9fa;
+    color: #343a40;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Navbar estilizado */
+.navbar {
+    background-color: #3c6e71 !important; /* Color verde azulado para la navbar */
+    padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-bottom: 40px;
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+}
+
+.navbar-brand img {
+    width: 45px !important;
+    height: auto;
+    margin-right: 10px;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5));
+    transition: transform 0.3s;
+}
+
+.navbar-brand img:hover {
+    transform: scale(1.1);
+}
+
+.navbar-brand span {
+    color: white;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: 0.5px;
+}
+
+/* Títulos */
+h2 {
+    color: #3c6e71;
+    margin: 30px 0 20px;
+    font-weight: 600;
+    text-align: center;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 3px;
+    background-color: #d9b08c; /* Color acento */
+    border-radius: 2px;
+}
+
+/* Formulario de carga de imágenes */
+form {
+    background-color: white;
+    border-radius: 8px;
+    padding: 25px;
+    margin: 20px auto;
+    max-width: 500px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: transform 0.3s;
+}
+
+form:hover {
+    transform: translateY(-5px);
+}
+
+input[type="file"] {
+    display: block;
+    width: 100%;
+    margin: 15px 0;
+    padding: 10px;
+    border: 2px dashed #d9b08c;
+    border-radius: 5px;
+    background-color: #faf6f2;
+    cursor: pointer;
+}
+
+button[type="submit"] {
+    background-color: #3c6e71;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+button[type="submit"]:hover {
+    background-color: #2c5052;
+    transform: scale(1.05);
+}
+
+/* Enlace de webcam */
+a {
+    display: block;
+    background-color: #d9b08c;
+    color: white;
+    text-decoration: none;
+    padding: 12px 25px;
+    border-radius: 5px;
+    max-width: 500px;
+    margin: 20px auto;
+    text-align: center;
+    font-weight: 500;
+    transition: all 0.3s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+a:hover {
+    background-color: #c89f80;
+    transform: scale(1.03);
+    text-decoration: none;
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    form, a {
+        max-width: 90%;
+    }
+    
+    button[type="submit"] {
+        width: 100%;
+    }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+form, h2, a {
+    animation: fadeIn 0.8s ease-out forwards;
+}
+
+/* Personalización de la selección de archivo */
+input[type="file"]::file-selector-button {
+    background-color: #d9b08c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    margin-right: 15px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: #c89f80;
+}

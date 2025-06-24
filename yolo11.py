@@ -17,12 +17,13 @@ import xml.etree.ElementTree as ET
 from PIL import Image
 import random
 import shutil
+import time
 
 # Class made to follow the dataset structure of YOLO (In images --> train, val, test folders, instead of all images in the same folder)
 class DatasetReorganizer:
     def __init__(self, dst_path, splits, classes_names):
-        self.src_path_images = "datasets/images"
-        self.src_path_labels = "datasets/labels"
+        self.src_path_images = "TFG_Dataset/images"
+        self.src_path_labels = "TFG_Dataset/labels"
         self.dst_path = dst_path
         self.splits = splits
         self.file_type_images = "images"
@@ -145,27 +146,6 @@ class DatasetReorganizer:
                     if dst_label.endswith(".jpeg.xml"):
                         os.rename(dst_label, dst_label.replace(".jpeg.xml", ".txt"))
 
-def get_classification_metrics(confusion_matrix, classes_names):
-    # Calcular métricas por clase
-    class_metrics = {}
-    
-    for i, class_name in enumerate(classes_names):
-        tp = confusion_matrix[i, i]
-        fp = confusion_matrix[:, i].sum() - tp
-        fn = confusion_matrix[i, :].sum() - tp
-
-        precision = tp / (tp + fp) if tp + fp > 0 else 0
-        recall = tp / (tp + fn) if tp + fn > 0 else 0
-        f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
-        
-        class_metrics[class_name] = {
-            'precision': precision,
-            'recall': recall,
-            'f1': f1
-        }
-    
-    return class_metrics
-
 # Define a custom dataset class
 class CustomDataset(Dataset):
     def __init__(self, image_paths = "train"):
@@ -188,7 +168,7 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         image_file, class_folder = self.data[idx] 
-        img = cv22.imread(image_file)
+        img = cv2.imread(image_file)
         img = cv2.resize(img, (224, 224))
 
         class_id = self.class_map[class_folder] 
@@ -200,11 +180,9 @@ class CustomDataset(Dataset):
 
 if __name__ == '__main__':
 
-    # Identify device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
+    # Initial cleanup and setup
     torch.cuda.empty_cache()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     splits = {
         'train': 0.7,
@@ -241,15 +219,40 @@ if __name__ == '__main__':
         "teddy", "papillon", "pug"
     ])
 
-    #reorganizer = DatasetReorganizer("datasets", splits, classes_names)
+    #reorganizer = DatasetReorganizer("TFG_Dataset", splits, classes_names)
     #reorganizer.reorganize()
        
     # Load the model
-    model = YOLO("yolo11n.pt").to(device)
+    model = YOLO("yolo11n").to(device)
     
     # Constructs the bounding boxes for the training dataset
-    results_val = model.train(data = "./datasets/train.yaml", epochs = 50, device = device, workers = 2, imgsz = 640, batch = 16, freeze = 5, plots = True, exist_ok = True, save_period = 1, save_json = True, cache = True, patience = 10, deterministic=True, name="5f50ep_1", project = "runs/train")
+    results_val = model.train(data = "./TFG_Dataset/train_highres.yaml", 
+        epochs = 130, 
+        device = device, # Use the GPU if available
+        workers = 4, # Number of workers for data loading - TITAN XP
+        imgsz = 640, # Image size for training
+        batch = 12, # Batch size for training - TITAN XP
+        #freeze = 5, # Freeze the first 5 layers to do transfer learning
+        # lr0 = 0.001, # Initial learning rate
+        # lrf=0.01, # Final learning rate
+        # augment=True,
+        # flipud=1.0,  # Random vertical flip
+        # degrees=15,  # Random rotation degrees
+        # hsv_v=0.15,  # Random brightness
+        # hsv_h=0.05,  # Random hue
+        # hsv_s=0.15,  # Random saturation
+        # translate=0.05,  # Random translation
+        patience=10,          
+        cos_lr=True,
+        cache=True,
+        plots = True, 
+        exist_ok = True, 
+        save_period = 25, 
+        name="hr_yf_1", 
+        project = "runs/train"
+    )
 
+    '''
     metrics = model.val(data = "./datasets/train.yaml", split="test", device = device, conf = 0.5, iou = 0.5, imgsz = 640)
     # Display the results
     print("Results:")
@@ -267,7 +270,7 @@ if __name__ == '__main__':
         print(f"  Recall: {values['recall']:.4f}")
         print(f"  F1-Score: {values['f1']:.4f}")
     print("/////////////")
-
+    '''
     '''
     # Process results list
     for result in results:
