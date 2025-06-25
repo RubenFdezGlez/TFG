@@ -15,8 +15,8 @@ app.config['UPLOAD_FOLDER'] = 'static/uploads'
 # Use GPU if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model_det = YOLO('yolov11n_det.pt').to(device)
-model_cls = YOLO('yolov11n_cls.pt').to(device)
+model_det = YOLO('./models/yolov11n_det.pt').to(device)
+model_cls = YOLO('./models/yolov11n_cls.pt').to(device)
 
 # Define the root route
 @app.route("/")
