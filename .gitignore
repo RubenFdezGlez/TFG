@@ -3,3 +3,5 @@
 *.png
 *.log
 *.csv
+
+!web/static/dog_icon.png
