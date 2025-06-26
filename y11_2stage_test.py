@@ -1,6 +1,6 @@
+# Script to test two YOLO11 models, one for dog detection and the other for species classification
 from ultralytics import YOLO
 import torch
-import time
 import os
 import numpy as np
 import pandas as pd
@@ -44,18 +44,18 @@ if __name__ == '__main__':
     # Load model
     det_model = YOLO('runs/yolo11det/1/weights/best.pt').to(device)
 
-    # Train the model to identify better some dog species
-    # det_results = det_model.train(
-    #     data = './TFG_Dataset/train_hr_dns.yaml',  # Path to the dataset configuration file
-    #     epochs = 20,  # Number of training epochs
-    #     device = device, # Use the GPU if available
-    #     workers = 4, # Number of workers for data loading - TITAN XP
-    #     imgsz = 640, # Image size for training
-    #     batch = 12, # Batch size for training - TITAN XP
-    #     single_cls = True,  # Single class training
-    #     name="1", 
-    #     project = "runs/yolo11det"
-    # )
+    # Train the model to identify better some dog species - Comment this line if you want to use a pre-trained model
+    det_results = det_model.train(
+        data = './TFG_Dataset/train_hr_dns.yaml',  # Path to the dataset configuration file
+        epochs = 20,  # Number of training epochs
+        device = device, # Use the GPU if available
+        workers = 4, # Number of workers for data loading - TITAN XP
+        imgsz = 640, # Image size for training
+        batch = 12, # Batch size for training - TITAN XP
+        single_cls = True,  # Single class training
+        name="1", 
+        project = "runs/yolo11det"
+    )
 
     # Get the performance and detection results on the test set
     det_results = det_model.val(
@@ -78,10 +78,8 @@ if __name__ == '__main__':
 
 
     torch.cuda.empty_cache()
-    #cls_model = YOLO('./runs/train/yolo11n_detcls_final/weights/best.pt').to(device)
     cls_model = YOLO('./runs/train/hr_yf_1/weights/best.pt').to(device)
 
-    # torch.cuda.empty_cache()
     confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
 
     total_time = 0
@@ -108,10 +106,8 @@ if __name__ == '__main__':
                 else:
                     confusion_matrix[class_id, np.where(classes_names == class_name_pred)[0][0]] += 1
 
-        #print(f"Processed class: {class_name}, Confusion Matrix Row: {confusion_matrix[class_id]}")
-
-print(f"Time taken to process the test dataset: {total_time:.2f} seconds")
-print(f"Time taken to process each image: {total_time / len(os.listdir('./TFG_Dataset/test/images')):.2f} seconds")
+print(f"Time taken to process the test dataset: {total_time:.2f} milliseconds")
+print(f"Time taken to process each image: {total_time / len(os.listdir('./TFG_Dataset/test/images')):.2f} milliseconds")
 
 overall_precision = 0
 overall_recall = 0
